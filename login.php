@@ -47,7 +47,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['email'])) {
             $mail->Port = 587;  // Poort voor Gmail SMTP
 
             // Ontvanger en onderwerp van de e-mail
-            $mail->setFrom('jouw-email@gmail.com', 'Jouw Naam');  // Je Gmail-adres en naam
+            $mail->setFrom('fruit.share.recipes@gmail.com', 'FruitShare');  // Je Gmail-adres en naam
             $mail->addAddress($email);  // Het e-mailadres van de ontvanger
             $mail->Subject = 'Wachtwoord Reset Verzoek';
             $mail->Body    = 'Hallo, klik op de volgende link om je wachtwoord te resetten: ' . $reset_link;

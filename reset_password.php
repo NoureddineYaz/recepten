@@ -17,39 +17,47 @@ if (isset($_GET['token'])) {
     $result = $stmt->get_result();
     
     if ($result->num_rows > 0) {
-        // De token is geldig, laat de gebruiker het wachtwoord resetten
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            if (isset($_POST['password'], $_POST['confirm_password'])) {
-                $password = $_POST['password'];
-                $confirm_password = $_POST['confirm_password'];
+        // De token is geldig, controleer of deze nog niet is verlopen
+        $user = $result->fetch_assoc();
+        if (time() > $user['reset_expires']) {
+            $form_visible = false; // Verberg het formulier bij een verlopen token
+            $message = "De resetlink is verlopen.";
+            $message_class = "error";
+        } else {
+            // Laat de gebruiker het wachtwoord resetten
+            if ($_SERVER["REQUEST_METHOD"] == "POST") {
+                if (isset($_POST['password'], $_POST['confirm_password'])) {
+                    $password = $_POST['password'];
+                    $confirm_password = $_POST['confirm_password'];
 
-                // Controleer of de wachtwoorden overeenkomen
-                if ($password !== $confirm_password) {
-                    $message = "Wachtwoorden komen niet overeen!";
-                    $message_class = "error";
-                } else {
-                    // Hash het nieuwe wachtwoord
-                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-
-                    // Update het wachtwoord in de database en verwijder de reset-token
-                    $stmt = $Mysql->prepare("UPDATE gebruikers SET hashed_password = ?, reset_token = NULL WHERE reset_token = ?");
-                    $stmt->bind_param("ss", $hashed_password, $token);
-
-                    if ($stmt->execute()) {
-                        // Zet de form op 'niet zichtbaar' omdat het wachtwoord succesvol is gereset
-                        $form_visible = false; 
-                        $message = "Wachtwoord succesvol gereset! Je kunt nu inloggen.";
-                        $message_class = "success";
-                        sleep(1);
-                        header("Location: login.php");
-                    } else {
-                        $message = "Er is een fout opgetreden tijdens het resetten van je wachtwoord.";
+                    // Controleer of de wachtwoorden overeenkomen
+                    if ($password !== $confirm_password) {
+                        $message = "Wachtwoorden komen niet overeen!";
                         $message_class = "error";
+                    } else {
+                        // Hash het nieuwe wachtwoord
+                        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+                        // Update het wachtwoord in de database en verwijder de reset-token
+                        $stmt = $Mysql->prepare("UPDATE gebruikers SET hashed_password = ?, reset_token = NULL, reset_expires = NULL WHERE reset_token = ?");
+                        $stmt->bind_param("ss", $hashed_password, $token);
+
+                        if ($stmt->execute()) {
+                            // Zet de form op 'niet zichtbaar' omdat het wachtwoord succesvol is gereset
+                            $form_visible = false; 
+                            $message = "Wachtwoord succesvol gereset! Je kunt nu inloggen.";
+                            $message_class = "success";
+                            sleep(1);
+                            header("Location: login.php");
+                        } else {
+                            $message = "Er is een fout opgetreden tijdens het resetten van je wachtwoord.";
+                            $message_class = "error";
+                        }
                     }
+                } else {
+                    $message = "Vul alstublieft beide velden in.";
+                    $message_class = "error";
                 }
-            } else {
-                $message = "Vul alstublieft beide velden in.";
-                $message_class = "error";
             }
         }
     } else {
