@@ -31,7 +31,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['email'])) {
         $update_stmt->execute();
 
         // Stel de resetlink samen
-        $reset_link = "http://localhost/noureddine/Groenten%20en%20recepten/reset_password.php?token=" . $token;
+        $reset_link = "http://localhost/noureddine/YAZ%20younes/recepten/reset_password.php?token=" . $token;
+        
 
         // Maak de PHPMailer instantie aan
         $mail = new PHPMailer(true);
@@ -88,7 +89,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['username'], $_POST['pa
         if (password_verify($password, $user['hashed_password'])) {
             // Als het wachtwoord correct is, start een sessie en log de gebruiker in
             session_start();
-            $_SESSION['user_id'] = $user['id']; // Sla de gebruiker-ID op in de sessie
+            $_SESSION['user_id'] = $user['user_id']; // Sla de gebruiker-ID op in de sessie
             $_SESSION['username'] = $user['username']; // Sla de gebruikersnaam op in de sessie
             $_SESSION['role'] = $user['role']; // Sla de rol van de gebruiker op in de sessie
             header("Location: index1.php"); // Redirect naar de dashboardpagina

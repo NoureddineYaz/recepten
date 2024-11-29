@@ -1,6 +1,10 @@
 <?php
 include "databank.php";
 session_start();
+require 'vendor/autoload.php'; 
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $title = $_POST['title'];
@@ -48,12 +52,71 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // if everything is ok, try to upload file
     } else {
         if (move_uploaded_file($_FILES["recipe_image"]["tmp_name"], $target_file)) {
-            include "databank.php";
             $stmt = $Mysql->prepare("INSERT INTO recepten (user_id, title, description, ingredients, instructions, image_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+            if ($stmt === false) {
+                die("Error: Failed to prepare the SQL statement.");
+            }
             $stmt->bind_param("isssss", $user_id, $title, $description, $ingredients, $instructions, $target_file);
             $stmt->execute();
             $stmt->close();
 
+            // Haal de ID van het nieuw toegevoegde recept op
+            $stmt = $Mysql->prepare("SELECT recipe_id FROM recepten WHERE image_path = ?");
+            if ($stmt === false) {
+                die("Error: Failed to prepare the SQL statement.");
+            }
+            $stmt->bind_param("s", $target_file);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            $recipe_id = $row['recipe_id'];
+            $stmt->close();
+
+            // Haal de lijst van volgers op
+            $stmt = $Mysql->prepare("SELECT g.email FROM volgen v JOIN gebruikers g ON v.follower_id = g.user_id WHERE v.followed_id = ?");
+            if ($stmt === false) {
+                die("Error: Failed to prepare the SQL statement.");
+            }
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $naam="Select username from gebruikers where user_id=$user_id";
+            $naamresult = $Mysql->query($naam);
+            $naamrow = $naamresult->fetch_assoc();
+            $naam = $naamrow['username'];
+            // Stuur een e-mail naar elke volger
+            while ($row = $result->fetch_assoc()) {
+                $to = $row['email'];
+                $subject = "New Recipe Uploaded";
+                $message = "A new recipe titled '$title' has been uploaded by '$naam'. Check it out! <a href='http://localhost/noureddine/YAZ%20younes/recepten/single_recipe.php?id=$recipe_id'>Click here</a>";
+
+                // Maak de PHPMailer instantie aan
+                $mail = new PHPMailer(true);
+                try {
+                    // Stel de SMTP instellingen in
+                    $mail->isSMTP();
+                    $mail->Host = 'smtp.gmail.com';  // Gmail SMTP server
+                    $mail->SMTPAuth = true;
+                    $mail->Username = 'fruit.share.recipes@gmail.com';  // Vul je Gmail e-mailadres in
+                    $mail->Password = 'sghzndgbvhnhldfp';  // Gebruik je app-wachtwoord hier
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                    $mail->Port = 587;  // Poort voor Gmail SMTP
+
+                    // Ontvanger en onderwerp van de e-mail
+                    $mail->setFrom('fruit.share.recipes@gmail.com', 'Fruit Share Recipes');
+                    $mail->addAddress($to);
+                    $mail->isHTML(true);
+                    $mail->Subject = $subject;
+                    $mail->Body = $message;
+
+                    $mail->send();
+                    echo "Email sent to: $to<br>";
+                } catch (Exception $e) {
+                    echo "Message could not be sent to $to. Mailer Error: {$mail->ErrorInfo}<br>";
+                }
+            }
+
+            $stmt->close();
             $Mysql->close();
 
             echo "The file " . htmlspecialchars(basename($_FILES["recipe_image"]["name"])) . " has been uploaded.";
@@ -92,7 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         body {
-            
             overflow: hidden;
         }
         .form-container {
@@ -100,8 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: flex;
             justify-content: center;
             align-items: center;
-            
-            
         }
         .form-container form {
             position: absolute;
@@ -268,7 +328,7 @@ h2 {
                 <div class="col-lg-8 offset-lg-2 text-center">
                     <div class="breadcrumb-text">
                         <div class="form-container">
-                            <form action="upload_Recipe.php" method="post" enctype="multipart/form-data">
+                            <form action="upload_recipe.php" method="post" enctype="multipart/form-data">
                                 <h2>Upload Recipe</h2>
                                 <p>
                                     <input class="" type="text" name="title" placeholder="Title" required>
