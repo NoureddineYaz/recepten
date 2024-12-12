@@ -10,7 +10,7 @@ if (!isset($_GET['id'])) {
 $recipe_id = $_GET['id'];
 
 // Fetch the specific recipe from the database
-$stmt = $Mysql->prepare("SELECT title, description, image_path, instructions FROM recepten WHERE recipe_id = ?");
+$stmt = $Mysql->prepare("SELECT title, description, image_path, instructions, user_id FROM recepten WHERE recipe_id = ?");
 if ($stmt === false) {
     die("Error: Failed to prepare the SQL statement.");
 }
@@ -24,6 +24,65 @@ if ($result->num_rows === 0) {
 }
 
 $recipe = $result->fetch_assoc();
+$author_id = $recipe['user_id'];
+
+// Fetch the author's username from the database
+$stmt = $Mysql->prepare("SELECT username FROM gebruikers WHERE user_id = ?");
+if ($stmt === false) {
+    die("Error: Failed to prepare the SQL statement.");
+}
+
+$stmt->bind_param("i", $author_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows === 0) {
+    die("Error: Author not found.");
+}
+
+$author = $result->fetch_assoc();
+$author_username = $author['username'];
+
+// Controleer of de gebruiker is ingelogd
+$current_user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+
+// Verwerk de volgactie als het formulier is ingediend
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $action = $_POST['action'];
+
+    if ($current_user_id && $author_id != $current_user_id) {
+        if ($action == 'follow') {
+            // Voeg de volgactie toe aan de database
+            $stmt = $Mysql->prepare("INSERT INTO volgen (follower_id, followed_id, created_at) VALUES (?, ?, NOW())");
+            if ($stmt === false) {
+                die("Error: Failed to prepare the SQL statement.");
+            }
+            $stmt->bind_param("ii", $current_user_id, $author_id);
+            $stmt->execute();
+            $stmt->close();
+        } elseif ($action == 'unfollow') {
+            // Verwijder de volgactie uit de database
+            $stmt = $Mysql->prepare("DELETE FROM volgen WHERE follower_id = ? AND followed_id = ?");
+            if ($stmt === false) {
+                die("Error: Failed to prepare the SQL statement.");
+            }
+            $stmt->bind_param("ii", $current_user_id, $author_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+}
+
+// Controleer of de huidige gebruiker de auteur volgt
+$is_following = false;
+if ($current_user_id) {
+    $stmt = $Mysql->prepare("SELECT * FROM volgen WHERE follower_id = ? AND followed_id = ?");
+    $stmt->bind_param("ii", $current_user_id, $author_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $is_following = $result->num_rows > 0;
+    $stmt->close();
+}
 ?>
 
 <!DOCTYPE html>
@@ -46,72 +105,7 @@ $recipe = $result->fetch_assoc();
     <link rel="stylesheet" href="assets/css/responsive.css">
 </head>
 <body>
-    <!-- header -->
-    <div class="top-header-area" id="sticker">
-        <div class="container">
-            <div class="row">
-                <div class="col-lg-12 col-sm-12 text-center">
-                    <div class="main-menu-wrap">
-                        <!-- logo -->
-                        <div class="site-logo">
-                            <a href="index.html">
-                                <img src="assets/img/logo.png" alt="">
-                            </a>
-                        </div>
-                        <!-- logo -->
-
-                        <!-- menu start -->
-                        <nav class="main-menu">
-                            <ul>
-                                <li class="current-list-item"><a href="#">Home</a>
-                                    <ul class="sub-menu">
-                                        <li><a href="index.html">Static Home</a></li>
-                                        <li><a href="index_2.html">Slider Home</a></li>
-                                    </ul>
-                                </li>
-                                <li><a href="about.html">About</a></li>
-                                <li><a href="#">Pages</a>
-                                    <ul class="sub-menu">
-                                        <li><a href="404.html">404 page</a></li>
-                                        <li><a href="about.html">About</a></li>
-                                        <li><a href="cart.html">Cart</a></li>
-                                        <li><a href="checkout.html">Check Out</a></li>
-                                        <li><a href="contact.html">Contact</a></li>
-                                        <li><a href="news.html">News</a></li>
-                                        <li><a href="shop.html">Shop</a></li>
-                                    </ul>
-                                </li>
-                                <li><a href="news.html">News</a>
-                                    <ul class="sub-menu">
-                                        <li><a href="news.html">News</a></li>
-                                        <li><a href="single-news.html">Single News</a></li>
-                                    </ul>
-                                </li>
-                                <li><a href="contact.html">Contact</a></li>
-                                <li><a href="shop.html">Shop</a>
-                                    <ul class="sub-menu">
-                                        <li><a href="shop.html">Shop</a></li>
-                                        <li><a href="checkout.html">Check Out</a></li>
-                                        <li><a href="single-product.html">Single Product</a></li>
-                                        <li><a href="cart.html">Cart</a></li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="header-icons">
-                                        <a class="shopping-cart" href="cart.html"><i class="fas fa-shopping-cart"></i></a>
-                                        <a class="mobile-hide search-bar-icon" href="#"><i class="fas fa-search"></i></a>
-                                    </div>
-                                </li>
-                            </ul>
-                        </nav>
-                        <a class="mobile-show search-bar-icon" href="#"><i class="fas fa-search"></i></a>
-                        <div class="mobile-menu"></div>
-                        <!-- menu end -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php include "header.php"; ?>
     <!-- end header -->
 
     <!-- breadcrumb-section -->
@@ -135,6 +129,17 @@ $recipe = $result->fetch_assoc();
             <div class="row">
                 <div class="col-lg-8 offset-lg-2">
                     <div class="single-recipe-details">
+                        <div class="recipe-text-box">
+                            <p>Posted by: <?php echo htmlspecialchars($author_username); ?></p>
+                            <?php if ($current_user_id && $author_id != $current_user_id): ?>
+                                <form action="single_recipe.php?id=<?php echo $recipe_id; ?>" method="post" style="display:inline;">
+                                    <input type="hidden" name="action" value="<?php echo $is_following ? 'unfollow' : 'follow'; ?>">
+                                    <button type="submit" class="btn <?php echo $is_following ? 'btn-danger' : 'btn-primary'; ?>">
+                                        <?php echo $is_following ? 'Unfollow' : 'Follow'; ?>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
                         <div class="recipe-image">
                             <img src="<?php echo htmlspecialchars($recipe['image_path']); ?>" alt="<?php echo htmlspecialchars($recipe['title']); ?>" class="img-fluid">
                         </div>
