@@ -1,4 +1,7 @@
 <!-- header -->
+ <?php 
+ session_start();
+ ?>
 <div class="top-header-area" id="sticker">
     <div class="container">
         <div class="row">
@@ -48,7 +51,13 @@
                                     <li><a href="cart.php">Cart</a></li>
                                 </ul>
                             </li>
-                            <li><a href="login.php">Login</a></li>
+                            <?php 
+                            if (isset($_SESSION['user_id'])) {
+                                echo '<li><a href="logout.php">Logout</a></li>';
+                            } else {
+                                echo '<li><a href="login.php">Login</a></li>';
+                            }
+                            ?>
                             <li>
                                 <div class="header-icons">
                                     <a class="shopping-cart" href="cart.html"><i class="fas fa-shopping-cart"></i></a>
