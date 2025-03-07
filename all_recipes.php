@@ -1,6 +1,5 @@
 <?php
 include "databank.php";
-session_start();
 
 // Fetch all recipes from the database
 $stmt = $Mysql->prepare("SELECT recipe_id, title, description, image_path FROM recepten");

@@ -1,6 +1,5 @@
 <?php
 include "databank.php";
-session_start();
 
 // Controleer of de 'id' parameter is ingesteld
 if (!isset($_GET['id'])) {
@@ -25,6 +24,7 @@ if ($result->num_rows === 0) {
 
 $recipe = $result->fetch_assoc();
 $author_id = $recipe['user_id'];
+$stmt->close(); // Close the statement after fetching the recipe
 
 // Fetch the author's username from the database
 $stmt = $Mysql->prepare("SELECT username FROM gebruikers WHERE user_id = ?");
@@ -42,6 +42,7 @@ if ($result->num_rows === 0) {
 
 $author = $result->fetch_assoc();
 $author_username = $author['username'];
+$stmt->close(); // Close the statement after fetching the author
 
 // Controleer of de gebruiker is ingelogd
 $current_user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
@@ -71,6 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->close();
         }
     }
+    // Redirect to avoid form resubmission
+    header("Location: single_recipe.php?id=$recipe_id");
+    exit;
 }
 
 // Controleer of de huidige gebruiker de auteur volgt
@@ -83,6 +87,50 @@ if ($current_user_id) {
     $is_following = $result->num_rows > 0;
     $stmt->close();
 }
+
+// Verwerk het reviewformulier als het is ingediend
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['rating'], $_POST['comment'])) {
+    $rating = $_POST['rating'];
+    $comment = $_POST['comment'];
+
+    // Voeg de review toe aan de database
+    $stmt = $Mysql->prepare("INSERT INTO feedback (user_id, recipe_id, rating, comment, created_at) VALUES (?, ?, ?, ?, NOW())");
+    if ($stmt === false) {
+        die("Error: Failed to prepare the SQL statement.");
+    }
+    $stmt->bind_param("iiis", $current_user_id, $recipe_id, $rating, $comment);
+    $stmt->execute();
+    $stmt->close();
+
+    // Redirect to avoid form resubmission
+    header("Location: single_recipe.php?id=$recipe_id");
+    exit;
+}
+
+// Verwerk het verwijderformulier als het is ingediend
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_comment_id'])) {
+    $delete_comment_id = $_POST['delete_comment_id'];
+
+    // Verwijder de review uit de database
+    $stmt = $Mysql->prepare("DELETE FROM feedback WHERE feedback_id = ? AND recipe_id = ?");
+    if ($stmt === false) {
+        die("Error: Failed to prepare the SQL statement.");
+    }
+    $stmt->bind_param("ii", $delete_comment_id, $recipe_id);
+    $stmt->execute();
+    $stmt->close();
+
+    // Redirect to avoid form resubmission
+    header("Location: single_recipe.php?id=$recipe_id");
+    exit;
+}
+
+// Haal de reviews voor het recept op
+$stmt = $Mysql->prepare("SELECT f.feedback_id, f.rating, f.comment, f.created_at, g.username FROM feedback f JOIN gebruikers g ON f.user_id = g.user_id WHERE f.recipe_id = ? ORDER BY f.created_at DESC");
+$stmt->bind_param("i", $recipe_id);
+$stmt->execute();
+$reviews_result = $stmt->get_result();
+$stmt->close();
 ?>
 
 <!DOCTYPE html>
@@ -150,6 +198,52 @@ if ($current_user_id) {
                             <p><?php echo nl2br(htmlspecialchars($recipe['instructions'])); ?></p>
                             <button onclick="copyURL()" class="btn btn-primary mt-3">Copy URL</button>
                         </div>
+
+                        <!-- Review Form -->
+                        <?php if ($current_user_id): ?>
+                            <div class="review-form mt-5">
+                                <h3>Leave a Review</h3>
+                                <form action="single_recipe.php?id=<?php echo $recipe_id; ?>" method="post">
+                                    <div class="form-group">
+                                        <label for="rating">Rating:</label>
+                                        <select name="rating" id="rating" class="form-control" required>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="comment">Comment:</label>
+                                        <textarea name="comment" id="comment" class="form-control" rows="3" required></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Submit Review</button>
+                                </form>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Display Reviews -->
+                        <div class="reviews mt-5">
+                            <h3>Reviews</h3>
+                            <?php if ($reviews_result->num_rows > 0): ?>
+                                <?php while ($review = $reviews_result->fetch_assoc()): ?>
+                                    <div class="review">
+                                        <p><strong><?php echo htmlspecialchars($review['username']); ?></strong> (<?php echo htmlspecialchars($review['rating']); ?>/5)</p>
+                                        <p><?php echo nl2br(htmlspecialchars($review['comment'])); ?></p>
+                                        <p><small><?php echo htmlspecialchars($review['created_at']); ?></small></p>
+                                        <?php if ($current_user_id == $author_id): ?>
+                                            <form action="single_recipe.php?id=<?php echo $recipe_id; ?>" method="post" style="display:inline;">
+                                                <input type="hidden" name="delete_comment_id" value="<?php echo $review['feedback_id']; ?>">
+                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <p>No reviews yet.</p>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -189,7 +283,7 @@ if ($current_user_id) {
                         </ul>
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-6">
+                <div class="col-lg-3 col-md=6">
                     <div class="footer-box subscribe">
                         <h2 class="widget-title">Subscribe</h2>
                         <p>Subscribe to our mailing list to get the latest updates.</p>
@@ -237,6 +331,5 @@ if ($current_user_id) {
 </body>
 </html>
 <?php
-$stmt->close();
 $Mysql->close();
 ?>

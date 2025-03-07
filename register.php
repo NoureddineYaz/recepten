@@ -8,51 +8,58 @@ $message_class = ""; // Dit bepaalt de CSS-klasse voor het bericht
 // Controleer of het formulier is verzonden
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Controleer of de benodigde velden bestaan in de POST-array
-    if (isset($_POST['username'], $_POST['email'], $_POST['password'], $_POST['confirm_password'])) {
+    if (isset($_POST['username'], $_POST['email'], $_POST['password'], $_POST['confirm_password'], $_POST['role'])) {
         // Verkrijg de waarden uit het formulier
         $username = $_POST['username'];
         $email = $_POST['email'];
         $password = $_POST['password'];
         $confirm_password = $_POST['confirm_password']; // Bevestigingswachtwoord
-        $role = 'consument'; // Standaard rol, kan later worden uitgebreid
+        $role = $_POST['role']; // Verkrijg de rol uit het formulier
 
-        // Controleer of de wachtwoorden gelijk zijn
-        if ($password !== $confirm_password) {
-            $message = "Wachtwoorden komen niet overeen!";
+        // Controleer of de rol een geldige waarde heeft
+        $allowed_roles = ['thuischef', 'boer', 'winkelier', 'consument'];
+        if (!in_array($role, $allowed_roles)) {
+            $message = "Ongeldige rol geselecteerd!";
             $message_class = "error";
         } else {
-            // Controleer of de gebruiker al bestaat in de database
-            $stmt = $Mysql->prepare("SELECT * FROM gebruikers WHERE email = ? OR username = ?");
-            $stmt->bind_param("ss", $email, $username); // Bind de parameters (strings)
-            $stmt->execute();
-            $stmt->store_result(); // Sla de resultaten op
-
-            // Als de gebruiker al bestaat, toon een foutmelding
-            if ($stmt->num_rows > 0) {
-                $message = "De gebruikersnaam of e-mail bestaat al!";
+            // Controleer of de wachtwoorden gelijk zijn
+            if ($password !== $confirm_password) {
+                $message = "Wachtwoorden komen niet overeen!";
                 $message_class = "error";
             } else {
-                // Hash het wachtwoord
-                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                // Controleer of de gebruiker al bestaat in de database
+                $stmt = $Mysql->prepare("SELECT * FROM gebruikers WHERE email = ? OR username = ?");
+                $stmt->bind_param("ss", $email, $username); // Bind de parameters (strings)
+                $stmt->execute();
+                $stmt->store_result(); // Sla de resultaten op
 
-                // Voeg de nieuwe gebruiker toe aan de database
-                $stmt = $Mysql->prepare("INSERT INTO gebruikers (username, email, hashed_password, role) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("ssss", $username, $email, $hashed_password, $role); // Bind de parameters (strings)
-
-                // Voer de query uit en controleer of de registratie succesvol was
-                if ($stmt->execute()) {
-                    $message = "Registratie geslaagd! Je kunt nu inloggen.";
-                    $message_class = "success";
-                    header("Location: login.php");
-                    exit;
-                } else {
-                    $message = "Er is een fout opgetreden tijdens de registratie. Probeer het opnieuw.";
+                // Als de gebruiker al bestaat, toon een foutmelding
+                if ($stmt->num_rows > 0) {
+                    $message = "De gebruikersnaam of e-mail bestaat al!";
                     $message_class = "error";
-                }
-            }
+                } else {
+                    // Hash het wachtwoord
+                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-            // Sluit de statement
-            $stmt->close();
+                    // Voeg de nieuwe gebruiker toe aan de database
+                    $stmt = $Mysql->prepare("INSERT INTO gebruikers (username, email, hashed_password, role) VALUES (?, ?, ?, ?)");
+                    $stmt->bind_param("ssss", $username, $email, $hashed_password, $role); // Bind de parameters (strings)
+
+                    // Voer de query uit en controleer of de registratie succesvol was
+                    if ($stmt->execute()) {
+                        $message = "Registratie geslaagd! Je kunt nu inloggen.";
+                        $message_class = "success";
+                        header("Location: login.php");
+                        exit;
+                    } else {
+                        $message = "Er is een fout opgetreden tijdens de registratie. Probeer het opnieuw.";
+                        $message_class = "error";
+                    }
+                }
+
+                // Sluit de statement
+                $stmt->close();
+            }
         }
     } else {
         $message = "Vul alstublieft alle velden in!";
@@ -124,7 +131,7 @@ $Mysql->close();
             background-color: #dc3545; /* Rood */
             color: white;
         }
-        input {
+        input, select {
             padding: 10px;
             margin: 10px 0;
             border: 1px solid #ccc;
@@ -176,6 +183,12 @@ $Mysql->close();
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required>
             <input type="password" name="confirm_password" placeholder="Confirm Password" required>
+            <select name="role" required>
+                <option value="consument">Consument</option>
+                <option value="thuischef">Thuischef</option>
+                <option value="boer">Boer</option>
+                <option value="winkelier">Winkelier</option>
+            </select>
             <input type="submit" value="Register">
         </form>
         <p>Already have an account? <a href="login.php">Login</a></p>

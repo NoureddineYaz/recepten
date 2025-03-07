@@ -1,6 +1,8 @@
 <?php
+
 include "databank.php";
-session_start();
+include "header.php";
+
 require 'vendor/autoload.php'; 
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -161,7 +163,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         body {
-            overflow: hidden;
+            overflow: hidden; /* Allow scrolling */
+            width: 100%;
+            height:auto;
         }
         .form-container {
             position: relative;
@@ -170,11 +174,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             align-items: center;
         }
         .form-container form {
-            position: absolute;
+            position: relative;
             width: 100%;
             max-width: 600px;
-            top: 0;
-            left: 0;
             margin: auto;
             padding: 20px;
             background: rgba(255, 255, 255, 0.9);
@@ -182,12 +184,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         .form-container h2 {
-            color: #333;
+            color: #fff; /* Change text color to white */
         }
     </style>
 </head>
 <body>
-<?php include "header.php"; ?>
     <style>
         
 .form-container {
@@ -211,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 .form-container h2 {
-    color: #333;
+    color: #fff; /* Change text color to white */
     margin-bottom: 20px;
     font-size: 24px;
     text-align: center;
@@ -256,6 +257,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 h2 {
     background-color:F28123 ;
+    color: white;
+}
+.white{
+    color: white;
 }
 
 .header-icons a:hover {
@@ -268,7 +273,7 @@ h2 {
                     <div class="breadcrumb-text">
                         <div class="form-container">
                             <form action="upload_recipe.php" method="post" enctype="multipart/form-data">
-                                <h2>Upload Recipe</h2>
+                                <h2 class="white">Upload Recipe</h2>
                                 <p>
                                     <input class="" type="text" name="title" placeholder="Title" required>
                                 </p>
